@@ -340,6 +340,15 @@ async function checkSpaceSetup() {
     const urlParams = new URLSearchParams(window.location.search);
     currentSpaceId = urlParams.get('space') || window.location.hostname.replace(/\./g, '-');
 
+    // Safety check - make sure user is authenticated
+    if (!currentUser) {
+        console.error('No authenticated user in checkSpaceSetup');
+        document.getElementById('authScreen').style.display = 'flex';
+        document.getElementById('appContainer').style.display = 'none';
+        document.getElementById('setupWizard').style.display = 'none';
+        return;
+    }
+
     try {
         const spaceDoc = await db.collection('spaces').doc(currentSpaceId).get();
         
@@ -406,9 +415,13 @@ async function rejoinAfterKick() {
 }
 
 function showSetupWizard() {
+    // Hide auth screen, show wizard
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('appContainer').style.display = 'none';
+    document.getElementById('setupWizard').style.display = 'flex';
+    
     initializeEmojiPicker();
     initializeColorPicker();
-    document.getElementById('setupWizard').style.display = 'flex';
 }
 
 function initializeEmojiPicker() {
@@ -633,10 +646,25 @@ async function joinSpace() {
     }
 }
 
-function enterSpace() {
-    document.getElementById('setupWizard').style.display = 'none';
-    loadSpace();
-    playSound('uiSelect');
+async function enterSpace() {
+    try {
+        // Load the member data first
+        const memberDoc = await db.collection('spaces').doc(currentSpaceId)
+            .collection('members').doc(currentUser.uid).get();
+        
+        if (memberDoc.exists) {
+            currentUserMember = memberDoc.data();
+        } else {
+            throw new Error('Member data not found');
+        }
+        
+        document.getElementById('setupWizard').style.display = 'none';
+        await loadSpace();
+        playSound('uiSelect');
+    } catch (error) {
+        console.error('Error entering space:', error);
+        alert('Error entering space: ' + error.message);
+    }
 }
 
 
@@ -645,6 +673,18 @@ function enterSpace() {
 // ========================================
 async function loadSpace() {
     try {
+        // Safety check - ensure we have member data
+        if (!currentUserMember) {
+            const memberDoc = await db.collection('spaces').doc(currentSpaceId)
+                .collection('members').doc(currentUser.uid).get();
+            
+            if (!memberDoc.exists) {
+                throw new Error('You are not a member of this space');
+            }
+            
+            currentUserMember = memberDoc.data();
+        }
+        
         const spaceDoc = await db.collection('spaces').doc(currentSpaceId).get();
         currentSpace = spaceDoc.data();
 
