@@ -12,7 +12,7 @@
          ======================================== -->
     <div class="auth-screen" id="authScreen">
         <div class="logo-outer">
-            <span class="logo">💬</span>
+            <span class="logo">💭</span>
             <span class="logo-inner">🪐</span>
         </div>
         <div class="auth-container">
@@ -55,21 +55,6 @@
     </div>
 
     <!-- ========================================
-         KICKED MESSAGE MODAL
-         ======================================== -->
-    <div class="modal" id="kickedModal">
-        <div class="modal-content">
-            <h3>You were kicked from this space</h3>
-            <p><strong>Reason:</strong></p>
-            <div id="kickedReason" style="padding: 15px; background: #f5f5f5; border-radius: 8px; margin: 15px 0;"></div>
-            <div class="wizard-buttons">
-                <button class="btn" onclick="rejoinAfterKick()">Come Back</button>
-                <button class="btn btn-secondary" onclick="logout()">Leave</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================================
          MAIN APPLICATION
          ======================================== -->
     <div class="app-container" id="appContainer">
@@ -90,11 +75,7 @@
                         <div class="user-role-badge" id="userRoleBadge" style="display: none;"></div>
                     </div>
                 </div>
-                <button class="settings-btn" onclick="openSettings()" id="settingsBtn">⚙️ Settings</button>
-                <button class="settings-btn moderator-btn" onclick="openModerator()" id="moderatorBtn" style="display: none;">
-                    🛡️ Moderator
-                    <span class="report-badge" id="reportBadge" style="display: none;">0</span>
-                </button>
+                <button class="settings-btn" onclick="openSettings()">⚙️ Settings</button>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
         </div>
@@ -114,11 +95,9 @@
                 </div>
                 <div class="message-input-area" id="messageInputArea">
                     <div class="message-input-container">
-                        <input type="text" id="messageInput" placeholder="Type a message..." onkeydown="handleMessageKeyDown(event)">
-                        <button class="emoji-btn" onclick="toggleEmojiPicker()">😊</button>
+                        <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="handleMessageKeyPress(event)">
                         <button class="send-btn" onclick="sendMessage()">Send</button>
                     </div>
-                    <div class="emoji-picker" id="emojiPicker" style="display: none;"></div>
                 </div>
             </div>
         </div>
@@ -153,7 +132,7 @@
                 <p>Pick an emoji and background color</p>
                 <div class="input-group">
                     <label>Emoji</label>
-                    <div class="emoji-picker-setup" id="emojiPickerSetup"></div>
+                    <div class="emoji-picker" id="emojiPicker"></div>
                 </div>
                 <div class="input-group">
                     <label>Background Color</label>
@@ -287,7 +266,7 @@
 
             <!-- Members Section -->
             <div class="settings-section">
-                <h4>Members (<span id="memberCount">0</span>/50)</h4>
+                <h4>Members</h4>
                 <div class="member-list" id="membersList"></div>
             </div>
 
@@ -296,13 +275,7 @@
                 <h4>Space Information</h4>
                 <p><strong>Space Name:</strong> <span id="settingsSpaceName"></span></p>
                 <p><strong>Space Type:</strong> <span id="settingsSpaceType"></span></p>
-                <p id="settingsJoinCodeContainer" class="hidden"><strong>Join Code:</strong> <span id="settingsJoinCodeValue"></span></p>
-            </div>
-
-            <!-- Account Section -->
-            <div class="settings-section">
-                <h4>Account</h4>
-                <button class="btn btn-secondary btn-small" onclick="confirmDeleteAccount()">Delete Account</button>
+                <p id="settingsJoinCode" class="hidden"><strong>Join Code:</strong> <span id="settingsJoinCodeValue"></span></p>
             </div>
 
             <!-- Danger Zone (Owner Only) -->
@@ -319,74 +292,6 @@
     </div>
 
     <!-- ========================================
-         MODERATOR MODAL
-         ======================================== -->
-    <div class="modal" id="moderatorModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Moderator Panel</h3>
-                <button class="close-modal" onclick="closeModerator()">×</button>
-            </div>
-
-            <div class="settings-section">
-                <h4>Reported Messages</h4>
-                <div id="reportedMessagesList"></div>
-            </div>
-
-            <div class="wizard-buttons mt-20">
-                <button class="btn btn-secondary" onclick="closeModerator()">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================================
-         REPORT CONFIRMATION MODAL
-         ======================================== -->
-    <div class="modal" id="reportModal">
-        <div class="modal-content">
-            <h3>Report Message</h3>
-            <p id="reportConfirmText"></p>
-            <div class="wizard-buttons">
-                <button class="btn btn-secondary" onclick="closeReportModal()">Cancel</button>
-                <button class="btn btn-danger" onclick="confirmReport()">Report</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================================
-         KICK MODAL
-         ======================================== -->
-    <div class="modal" id="kickModal">
-        <div class="modal-content">
-            <h3>Kick User</h3>
-            <p>Why are you kicking <strong id="kickUserName"></strong>?</p>
-            <div class="input-group">
-                <label>Reason</label>
-                <textarea id="kickReason" rows="3" placeholder="Enter reason for kick..."></textarea>
-            </div>
-            <div class="wizard-buttons">
-                <button class="btn btn-secondary" onclick="closeKickModal()">Cancel</button>
-                <button class="btn btn-danger" onclick="confirmKick()">Kick User</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================================
-         BAN CONFIRMATION MODAL
-         ======================================== -->
-    <div class="modal" id="banModal">
-        <div class="modal-content">
-            <h3>Ban User</h3>
-            <p>Are you sure you want to permanently ban <strong id="banUserName"></strong>?</p>
-            <p style="color: #e74c3c; font-size: 14px;">This will prevent them from signing in to this space.</p>
-            <div class="wizard-buttons">
-                <button class="btn btn-secondary" onclick="closeBanModal()">Cancel</button>
-                <button class="btn btn-danger" onclick="confirmBan()">Ban User</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================================
          FIREBASE SDKs
          ======================================== -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -396,6 +301,6 @@
     <!-- ========================================
          APPLICATION SCRIPT
          ======================================== -->
-    <script src="script.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
