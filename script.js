@@ -1,7 +1,3 @@
-// ========================================
-// FIREBASE CONFIGURATION
-// ========================================
-// TODO: Replace with your Firebase config from Firebase Console
 const firebaseConfig = {
   apiKey: "AIzaSyBUObn49uGiW-FCHn6-ytKwZLrtyIH70GY",
   authDomain: "friendspacedemo.firebaseapp.com",
@@ -19,21 +15,6 @@ const db = firebase.firestore();
 
 // Enable persistence
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-
-// ========================================
-// SOUND EFFECTS
-// ========================================
-const sounds = {
-    messageSend: new Audio('assets/sounds/messagesend.mp3'),
-    uiSelect: new Audio('assets/sounds/uiselect.mp3')
-};
-
-function playSound(soundName) {
-    if (sounds[soundName]) {
-        sounds[soundName].currentTime = 0;
-        sounds[soundName].play().catch(e => console.log('Sound play failed:', e));
-    }
-}
 
 // ========================================
 // GLOBAL STATE
@@ -72,21 +53,31 @@ let setupData = {
 let notificationPermission = false;
 
 async function requestNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-        const permission = await Notification.requestPermission();
-        notificationPermission = permission === 'granted';
-    } else if (Notification.permission === 'granted') {
-        notificationPermission = true;
+    if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+            notificationPermission = true;
+        } else if (Notification.permission !== 'denied') {
+            const permission = await Notification.requestPermission();
+            notificationPermission = permission === 'granted';
+        }
     }
 }
 
 function showNotification(title, body) {
-    if (notificationPermission && document.hidden) {
+    if (!notificationPermission || !('Notification' in window)) {
+        return;
+    }
+    
+    // Show notification regardless of page visibility
+    try {
         new Notification(title, {
             body: body,
             icon: '💬',
-            badge: '💬'
+            badge: '💬',
+            tag: 'friendspaces-message'
         });
+    } catch (e) {
+        console.log('Notification failed:', e);
     }
 }
 
@@ -123,7 +114,7 @@ let connectedRef = null;
 function setupPresence() {
     if (!currentUser || !currentSpaceId) return;
 
-    // Using Firestore for presence (simpler than Realtime Database)
+    // Using Firestore for presence
     const presenceDoc = db.collection('spaces').doc(currentSpaceId)
         .collection('presence').doc(currentUser.uid);
 
@@ -136,16 +127,33 @@ function setupPresence() {
     // Update lastSeen every 30 seconds
     presenceRef = setInterval(() => {
         presenceDoc.update({
+            online: true,
             lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        }).catch(err => console.log('Presence update failed:', err));
     }, 30000);
 
-    // Set offline on disconnect
-    window.addEventListener('beforeunload', () => {
+    // Set offline on various events
+    const setOffline = () => {
         presenceDoc.set({
             online: false,
             lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        }).catch(err => console.log('Set offline failed:', err));
+    };
+    
+    // Handle tab close, browser close, navigation away
+    window.addEventListener('beforeunload', setOffline);
+    window.addEventListener('pagehide', setOffline);
+    
+    // Handle tab visibility change (tab switch, minimize)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            setOffline();
+        } else {
+            presenceDoc.set({
+                online: true,
+                lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(err => console.log('Set online failed:', err));
+        }
     });
 
     // Listen to all presence
@@ -156,10 +164,11 @@ function setupPresence() {
             const now = Date.now();
             snapshot.forEach(doc => {
                 const data = doc.data();
-                if (data.lastSeen) {
+                // Only consider online if explicitly marked as online AND seen recently
+                if (data.online === true && data.lastSeen) {
                     const lastSeen = data.lastSeen.toMillis();
-                    // Consider online if seen within last 2 minutes
-                    if (now - lastSeen < 120000) {
+                    // Consider online if seen within last 60 seconds
+                    if (now - lastSeen < 60000) {
                         onlineUsers.add(doc.id);
                     }
                 }
@@ -182,7 +191,7 @@ function cleanupPresence() {
             .collection('presence').doc(currentUser.uid).set({
                 online: false,
                 lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            }).catch(err => console.log('Cleanup presence failed:', err));
     }
 }
 
@@ -258,7 +267,7 @@ async function signUp() {
     try {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         await userCredential.user.updateProfile({ displayName: name });
-        playSound('uiSelect');
+        
     } catch (error) {
         showError(error.message);
     }
@@ -275,7 +284,7 @@ async function signIn() {
 
     try {
         await auth.signInWithEmailAndPassword(email, password);
-        playSound('uiSelect');
+        
     } catch (error) {
         showError(error.message);
     }
@@ -287,7 +296,7 @@ async function logout() {
     if (membersListener) membersListener();
     if (reportsListener) reportsListener();
     await auth.signOut();
-    playSound('uiSelect');
+    
 }
 
 async function confirmDeleteAccount() {
@@ -317,7 +326,7 @@ async function confirmDeleteAccount() {
         await currentUser.delete();
         
         alert('Account deleted successfully.');
-        playSound('uiSelect');
+        
     } catch (error) {
         console.error('Error deleting account:', error);
         alert('Error deleting account: ' + error.message);
@@ -407,7 +416,7 @@ async function rejoinAfterKick() {
         document.getElementById('kickedModal').style.display = 'none';
         currentUserMember.status = 'active';
         await loadSpace();
-        playSound('uiSelect');
+        
     } catch (error) {
         console.error('Error rejoining:', error);
         alert('Error rejoining space: ' + error.message);
@@ -505,13 +514,13 @@ function nextStep(stepNum) {
 
     document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
     document.getElementById('step' + stepNum).classList.add('active');
-    playSound('uiSelect');
+    
 }
 
 function prevStep(stepNum) {
     document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
     document.getElementById('step' + stepNum).classList.add('active');
-    playSound('uiSelect');
+    
 }
 
 async function completeSetup() {
@@ -570,7 +579,7 @@ async function completeSetup() {
         }
 
         nextStep(6);
-        playSound('uiSelect');
+        
     } catch (error) {
         console.error('Error creating space:', error);
         alert('Error creating space: ' + error.message);
@@ -607,7 +616,7 @@ async function submitJoinCode() {
 
     document.getElementById('joinCodeModal').style.display = 'none';
     await joinSpace();
-    playSound('uiSelect');
+    
 }
 
 function cancelJoinCode() {
@@ -660,7 +669,7 @@ async function enterSpace() {
         
         document.getElementById('setupWizard').style.display = 'none';
         await loadSpace();
-        playSound('uiSelect');
+        
     } catch (error) {
         console.error('Error entering space:', error);
         alert('Error entering space: ' + error.message);
@@ -689,8 +698,18 @@ async function loadSpace() {
         currentSpace = spaceDoc.data();
 
         if (currentSpace.theme) {
-            document.querySelector('.chat-area').style.background = currentSpace.theme.bg;
-            document.querySelector('.messages-container').style.color = currentSpace.theme.text;
+            const chatArea = document.querySelector('.chat-area');
+            const messagesContainer = document.querySelector('.messages-container');
+            const inputArea = document.querySelector('.message-input-area');
+            
+            chatArea.style.background = currentSpace.theme.bg;
+            messagesContainer.style.background = currentSpace.theme.bg;
+            messagesContainer.style.color = currentSpace.theme.text;
+            inputArea.style.background = currentSpace.theme.bg;
+            
+            // Apply to all message text
+            document.documentElement.style.setProperty('--message-text-color', currentSpace.theme.text);
+            document.documentElement.style.setProperty('--chat-bg-color', currentSpace.theme.bg);
         }
 
         document.getElementById('headerSpaceName').textContent = currentSpace.name;
@@ -761,10 +780,10 @@ async function loadTables() {
         if (doc.id === currentTableId) div.classList.add('active');
         
         const canManage = isOwnerOrCoOwner();
-        const shieldHtml = canManage ? `<span class="table-shield" onclick="event.stopPropagation(); openTablePermissions('${doc.id}', '${table.name}')">🛡️</span>` : '';
+        const shieldHtml = canManage ? `<span class="table-shield" onclick="event.stopPropagation(); openTablePermissions('${doc.id}', '${escapeHtml(table.name)}')">🛡️</span>` : '';
         
         div.innerHTML = `
-            <span class="table-name" onclick="switchTable('${doc.id}')">${table.name}</span>
+            <span class="table-name" onclick="switchTable('${doc.id}')">${escapeHtml(table.name)}</span>
             ${shieldHtml}
         `;
         tablesList.appendChild(div);
@@ -800,7 +819,7 @@ async function createNewTable() {
 
         input.value = '';
         await loadTables();
-        playSound('uiSelect');
+        
     } catch (error) {
         console.error('Error creating table:', error);
         alert('Error creating table: ' + error.message);
@@ -827,7 +846,7 @@ function switchTable(tableId) {
             loadMessages(tableId);
         });
     
-    playSound('uiSelect');
+    
 }
 
 // ========================================
@@ -869,7 +888,7 @@ function loadMessages(tableId) {
                     if (lastChange.type === 'added' && lastChange.doc.data().senderId !== currentUser.uid) {
                         const msgData = lastChange.doc.data();
                         showNotification('New message from ' + msgData.senderName, msgData.text.substring(0, 50));
-                        playSound('messageSend');
+                        
                     }
                 }
             }
@@ -923,28 +942,24 @@ function renderMessage(msg) {
     const rankBadge = msg.senderRole && msg.senderRole !== 'friend' && msg.senderRole !== 'guest' ? 
         `<span class="message-rank">${msg.senderRole}</span>` : '';
 
-    // Extract imgur link if present
+    // Extract image link if present (any image URL with common extensions)
     let messageText = msg.text;
-    let imgurHtml = '';
-    const imgurRegex = /(https?:\/\/(?:i\.)?imgur\.com\/\w+(?:\.\w+)?)/i;
-    const imgurMatch = messageText.match(imgurRegex);
+    let imageHtml = '';
+    // Match URLs containing image extensions anywhere in the path
+    const imageRegex = /(https?:\/\/[^\s]+\/[^\s]*\.(?:jpg|jpeg|png|gif|webp|bmp)(?:[^\s]*)?)/i;
+    const imageMatch = messageText.match(imageRegex);
     
-    if (imgurMatch) {
-        const imgurUrl = imgurMatch[1];
-        // Ensure it's the direct image URL
-        let imgUrl = imgurUrl;
-        if (!imgUrl.match(/\.(jpg|jpeg|png|gif)$/i)) {
-            imgUrl = imgUrl.replace('imgur.com/', 'i.imgur.com/') + '.jpg';
-        }
+    if (imageMatch) {
+        const imageUrl = imageMatch[1];
         
-        imgurHtml = `
-            <div class="imgur-preview" onclick="window.open('${escapeHtml(imgurUrl)}', '_blank')">
-                <img src="${escapeHtml(imgUrl)}" alt="Image" onerror="this.parentElement.style.display='none'">
+        imageHtml = `
+            <div class="image-preview" onclick="window.open('${escapeHtml(imageUrl)}', '_blank')">
+                <img src="${escapeHtml(imageUrl)}" alt="Image" onerror="this.parentElement.style.display='none'">
             </div>
         `;
         
-        // Remove imgur link from text
-        messageText = messageText.replace(imgurRegex, '').trim();
+        // Remove image link from text
+        messageText = messageText.replace(imageRegex, '').trim();
     }
 
     // Make links clickable
@@ -963,7 +978,7 @@ function renderMessage(msg) {
                 ${rankBadge}
                 <span class="message-time">${timestamp}</span>
             </div>
-            ${imgurHtml}
+            ${imageHtml}
             ${messageText ? `<div class="message-text">${messageText}</div>` : ''}
         </div>
     `;
@@ -999,7 +1014,7 @@ async function sendMessage() {
 
         input.value = '';
         closeEmojiPicker();
-        playSound('messageSend');
+        
     } catch (error) {
         console.error('Error sending message:', error);
         alert('Error sending message: ' + error.message);
@@ -1042,7 +1057,7 @@ function showEmojiPicker() {
     });
     
     picker.style.display = 'grid';
-    playSound('uiSelect');
+    
 }
 
 function closeEmojiPicker() {
@@ -1168,7 +1183,7 @@ async function confirmReport() {
             });
         
         closeReportModal();
-        playSound('uiSelect');
+        
         alert('User reported and temp-banned. Check Moderator panel to resolve.');
     } catch (error) {
         console.error('Error reporting:', error);
@@ -1210,7 +1225,7 @@ function openModerator() {
     }
     
     document.getElementById('moderatorModal').style.display = 'flex';
-    playSound('uiSelect');
+    
 }
 
 function closeModerator() {
@@ -1258,7 +1273,7 @@ async function resolveReport(reportId, action, userId, kickMessage = '') {
                 action: action
             });
         
-        playSound('uiSelect');
+        
     } catch (error) {
         console.error('Error resolving report:', error);
         alert('Error resolving report: ' + error.message);
@@ -1290,7 +1305,7 @@ async function confirmKick() {
     
     await kickUserInternal(currentKickUserId, reason);
     closeKickModal();
-    playSound('uiSelect');
+    
 }
 
 async function kickUserInternal(userId, reason) {
@@ -1326,7 +1341,7 @@ function closeBanModal() {
 async function confirmBan() {
     await banUserInternal(currentBanUserId);
     closeBanModal();
-    playSound('uiSelect');
+    
 }
 
 async function banUserInternal(userId) {
@@ -1351,7 +1366,7 @@ async function unbanUser(userId) {
                 status: 'active'
             });
         
-        playSound('uiSelect');
+        
         alert('User unbanned successfully');
         openSettings(); // Refresh settings
     } catch (error) {
@@ -1391,7 +1406,7 @@ async function openTablePermissions(tableId, tableName) {
     });
 
     document.getElementById('tablePermissionsModal').style.display = 'flex';
-    playSound('uiSelect');
+    
 }
 
 function createPermissionCheckbox(id, label, canView, canSit) {
@@ -1443,7 +1458,7 @@ async function saveTablePermissions() {
             updateMessageInput();
         }
         
-        playSound('uiSelect');
+        
     } catch (error) {
         console.error('Error saving permissions:', error);
         alert('Error saving permissions: ' + error.message);
@@ -1539,14 +1554,14 @@ async function openSettings() {
     }
 
     document.getElementById('settingsModal').style.display = 'flex';
-    playSound('uiSelect');
+    
 }
 
 async function changeUserRole(userId, newRole) {
     try {
         await db.collection('spaces').doc(currentSpaceId)
             .collection('members').doc(userId).update({ role: newRole });
-        playSound('uiSelect');
+        
     } catch (error) {
         console.error('Error changing role:', error);
         alert('Error changing role: ' + error.message);
@@ -1573,7 +1588,7 @@ async function deleteSpace() {
         
         alert('Space deleted successfully.');
         logout();
-        playSound('uiSelect');
+        
     } catch (error) {
         console.error('Error deleting space:', error);
         alert('Error deleting space: ' + error.message);
