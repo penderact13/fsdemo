@@ -366,6 +366,12 @@ async function checkSpaceSetup() {
         } else {
             currentSpace = spaceDoc.data();
             
+            // Update auth screen logo with space emoji
+            const authLogo = document.getElementById('authLogo');
+            if (authLogo && currentSpace.icon && currentSpace.icon.emoji) {
+                authLogo.textContent = currentSpace.icon.emoji;
+            }
+            
             const memberDoc = await db.collection('spaces').doc(currentSpaceId)
                 .collection('members').doc(currentUser.uid).get();
             
@@ -434,7 +440,24 @@ function showSetupWizard() {
 }
 
 function initializeEmojiPicker() {
-    const emojis = ['🌟', '🎮', '🎨', '🎵', '⚽', '🍕', '🚀', '💡', '🌈', '🔥', '⚡', '🌸', '🎯', '🏆', '💎', '🎪'];
+    const emojis = [
+        // Smileys
+        '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇',
+        // Hearts & Love
+        '🥰','😍','🤩','😘','😗','❤️','🧡','💛','💚','💙','💜','🖤','🤍','💖',
+        // Animals
+        '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵',
+        // Nature
+        '🌸','🌺','🌻','🌷','🌹','🌼','🌿','☘️','🍀','🌱','🌲','🌳','🌴','🌵','🌾',
+        // Food
+        '🍎','🍊','🍋','🍌','🍉','🍇','🍓','🍒','🍑','🍍','🥝','🥑','🍔','🍕','🌮',
+        // Activities
+        '⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎱','🎮','🎯','🎲','🎸','🎹','🎺','🎻',
+        // Objects
+        '💎','💍','👑','🎩','🎓','⚡','🔥','💧','⭐','🌟','✨','💫','🌙','☀️','🌈',
+        // Symbols
+        '❤️','💕','💖','💗','💘','💝','💞','💓','💌','💟','❣️','💔','🔴','🟠','🟡'
+    ];
     const picker = document.getElementById('emojiPickerSetup');
     picker.innerHTML = '';
     
@@ -551,6 +574,7 @@ async function completeSetup() {
                 displayName: currentUser.displayName,
                 role: 'owner',
                 status: 'active',
+                avatarColor: getRandomColor(currentUser.uid),
                 joinedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
@@ -641,6 +665,7 @@ async function joinSpace() {
                 displayName: currentUser.displayName,
                 role: 'guest',
                 status: 'active',
+                avatarColor: getRandomColor(currentUser.uid),
                 joinedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
@@ -709,6 +734,7 @@ async function loadSpace() {
             
             // Apply to all message text
             document.documentElement.style.setProperty('--message-text-color', currentSpace.theme.text);
+            document.documentElement.style.setProperty('--message-author-color', currentSpace.theme.text);
             document.documentElement.style.setProperty('--chat-bg-color', currentSpace.theme.bg);
         }
 
@@ -719,7 +745,10 @@ async function loadSpace() {
 
         const userAvatar = document.getElementById('userAvatar');
         userAvatar.textContent = currentUser.displayName.charAt(0).toUpperCase();
-        userAvatar.style.background = getRandomColor(currentUser.uid);
+        
+        // Ensure avatar color exists and store if needed
+        const avatarColor = await ensureAvatarColor(currentUser.uid);
+        userAvatar.style.background = avatarColor;
 
         document.getElementById('userName').textContent = currentUser.displayName;
         
@@ -906,12 +935,21 @@ function updateMessageInput() {
     } else {
         inputArea.innerHTML = `
             <div class="message-input-container">
-                <input type="text" id="messageInput" placeholder="Type a message..." onkeydown="handleMessageKeyDown(event)">
+                <textarea id="messageInput" placeholder="Type a message..." onkeydown="handleMessageKeyDown(event)" rows="1"></textarea>
                 <button class="emoji-btn" onclick="toggleEmojiPicker()">😊</button>
                 <button class="send-btn" onclick="sendMessage()">Send</button>
             </div>
             <div class="emoji-picker" id="emojiPicker" style="display: none;"></div>
         `;
+        
+        // Auto-resize textarea as user types
+        const textarea = document.getElementById('messageInput');
+        if (textarea) {
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+        }
     }
 }
 
@@ -935,7 +973,7 @@ function renderMessage(msg) {
         div.classList.add('hidden-message');
     }
 
-    const avatarColor = getRandomColor(msg.senderId);
+    const avatarColor = msg.avatarColor || getRandomColor(msg.senderId);
     const initial = msg.senderName.charAt(0).toUpperCase();
     const timestamp = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
@@ -1000,6 +1038,9 @@ async function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
 
+    // Ensure avatar color exists
+    const avatarColor = await ensureAvatarColor(currentUser.uid);
+
     try {
         await db.collection('spaces').doc(currentSpaceId)
             .collection('tables').doc(currentTableId)
@@ -1008,6 +1049,7 @@ async function sendMessage() {
                 senderId: currentUser.uid,
                 senderName: currentUser.displayName,
                 senderRole: currentUserMember.role,
+                avatarColor: avatarColor,
                 hidden: false,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
@@ -1353,6 +1395,9 @@ async function banUserInternal(userId) {
             });
         
         alert('User banned successfully');
+        
+        // Refresh settings to show unban button
+        openSettings();
     } catch (error) {
         console.error('Error banning user:', error);
         alert('Error banning user: ' + error.message);
@@ -1496,7 +1541,7 @@ async function openSettings() {
         const div = document.createElement('div');
         div.className = 'member-item';
 
-        const avatarColor = getRandomColor(member.id);
+        const avatarColor = member.avatarColor || getRandomColor(member.id);
         const initial = member.displayName.charAt(0).toUpperCase();
         
         const canChangeRole = isOwnerOrCoOwner() && member.id !== currentUser.uid;
@@ -1602,6 +1647,27 @@ function closeSettings() {
 // ========================================
 // UTILITIES
 // ========================================
+async function ensureAvatarColor(userId) {
+    // Check if current user member has avatarColor
+    if (currentUserMember && !currentUserMember.avatarColor) {
+        const newColor = getRandomColor(userId);
+        currentUserMember.avatarColor = newColor;
+        
+        // Store in Firestore
+        try {
+            await db.collection('spaces').doc(currentSpaceId)
+                .collection('members').doc(userId).update({
+                    avatarColor: newColor
+                });
+        } catch (error) {
+            console.error('Error storing avatar color:', error);
+        }
+        
+        return newColor;
+    }
+    return currentUserMember.avatarColor || getRandomColor(userId);
+}
+
 function isOwner() {
     return currentUserMember && currentUserMember.role === 'owner';
 }
