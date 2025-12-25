@@ -1,6 +1,11 @@
 /* ========================================
    RESET & BASE STYLES
    ======================================== */
+:root {
+    --message-text-color: #34495e;
+    --chat-bg-color: #ecf0f1;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -340,6 +345,9 @@ body {
     opacity: 0.6;
     transition: opacity 0.3s;
     padding: 4px;
+    z-index: 10;
+    position: relative;
+    user-select: none;
 }
 
 .table-shield:hover {
@@ -475,7 +483,7 @@ body {
 }
 
 .message-text {
-    color: #34495e;
+    color: var(--message-text-color);
     line-height: 1.5;
     word-wrap: break-word;
 }
@@ -489,7 +497,7 @@ body {
     text-decoration: underline;
 }
 
-.imgur-preview {
+.image-preview {
     margin-top: 8px;
     max-width: 300px;
     cursor: pointer;
@@ -499,11 +507,11 @@ body {
     transition: border-color 0.3s;
 }
 
-.imgur-preview:hover {
+.image-preview:hover {
     border-color: #667eea;
 }
 
-.imgur-preview img {
+.image-preview img {
     width: 100%;
     display: block;
 }
@@ -1122,4 +1130,225 @@ body {
 .member-list::-webkit-scrollbar-thumb:hover,
 .sidebar::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+/* ========================================
+   MOBILE RESPONSIVENESS
+   ======================================== */
+@media (max-width: 768px) {
+    /* Header adjustments */
+    .header {
+        flex-direction: column;
+        padding: 10px;
+        gap: 10px;
+    }
+    
+    .header-left, .header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .user-info {
+        font-size: 12px;
+    }
+    
+    .settings-btn, .logout-btn, .moderator-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    
+    /* Main content - stack vertically on mobile */
+    .main-content {
+        flex-direction: column;
+    }
+    
+    /* Sidebar - make it a horizontal tab bar on mobile */
+    .sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 150px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        padding: 10px;
+        display: flex;
+        gap: 10px;
+    }
+    
+    .sidebar h3 {
+        display: none;
+    }
+    
+    .table-item {
+        display: inline-flex;
+        min-width: 120px;
+        margin-bottom: 0;
+    }
+    
+    .add-table-section {
+        display: inline-flex;
+        min-width: 150px;
+        border-top: none;
+        padding-top: 0;
+        margin-top: 0;
+    }
+    
+    .new-table-input {
+        width: 100px;
+        font-size: 12px;
+    }
+    
+    /* Chat area */
+    .chat-area {
+        flex: 1;
+        min-height: 300px;
+    }
+    
+    .messages-container {
+        padding: 10px;
+    }
+    
+    .message {
+        font-size: 14px;
+    }
+    
+    .message-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+    }
+    
+    .message-author {
+        font-size: 14px;
+    }
+    
+    .message-time {
+        font-size: 10px;
+    }
+    
+    /* Message input */
+    .message-input-area {
+        padding: 10px;
+    }
+    
+    .message-input-container input {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    
+    .emoji-btn, .send-btn {
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+    
+    /* Modals - full screen on mobile */
+    .modal-content {
+        width: 95%;
+        max-width: 95%;
+        max-height: 90vh;
+        padding: 20px;
+    }
+    
+    .wizard-container {
+        width: 95%;
+        max-width: 95%;
+        padding: 20px;
+    }
+    
+    /* Auth screen */
+    .auth-container {
+        min-width: 300px;
+        width: 90%;
+        padding: 25px;
+    }
+    
+    .logo {
+        font-size: 60px;
+    }
+    
+    .logo-inner {
+        font-size: 30px;
+    }
+    
+    /* Emoji picker */
+    .emoji-picker {
+        grid-template-columns: repeat(6, 1fr);
+        max-width: 90vw;
+    }
+    
+    .emoji-picker-setup {
+        grid-template-columns: repeat(6, 1fr);
+    }
+    
+    /* Image preview */
+    .image-preview {
+        max-width: 100%;
+    }
+    
+    /* Member list in settings */
+    .member-item {
+        flex-wrap: wrap;
+        font-size: 13px;
+    }
+    
+    .member-controls {
+        width: 100%;
+        margin-top: 8px;
+        justify-content: space-between;
+    }
+    
+    .role-select {
+        font-size: 12px;
+    }
+    
+    .action-btn {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+}
+
+/* iPhone specific fixes */
+@media (max-width: 428px) {
+    .header {
+        padding: 8px;
+    }
+    
+    .space-icon {
+        width: 30px;
+        height: 30px;
+        font-size: 18px;
+    }
+    
+    .space-info h2 {
+        font-size: 16px;
+    }
+    
+    .user-avatar {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+    
+    .message-input-container {
+        gap: 5px;
+    }
+    
+    .send-btn {
+        padding: 10px 15px;
+    }
+    
+    /* Prevent iOS zoom on input focus */
+    input, textarea, select {
+        font-size: 16px !important;
+    }
+}
+
+/* Landscape mode on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    .sidebar {
+        max-height: 80px;
+    }
+    
+    .messages-container {
+        min-height: 200px;
+    }
 }
