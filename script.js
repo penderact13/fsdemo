@@ -796,7 +796,7 @@ async function loadSpace() {
         document.getElementById('setupWizard').style.display = 'none';
         document.getElementById('appContainer').style.display = 'flex';
 
-        loadMessages('main');
+        switchTable('main');
     } catch (error) {
         console.error('Error loading space:', error);
         alert('Error loading space: ' + error.message);
@@ -817,6 +817,21 @@ async function loadMembers() {
         });
 }
 
+function canViewTable(tableData) {
+    if (!tableData || !currentUserMember) return false;
+    
+    // Check if 'all' can view
+    if (tableData.canView.includes('all')) return true;
+    
+    // Check if user's role can view
+    if (tableData.canView.includes(currentUserMember.role)) return true;
+    
+    // Check if user's ID is specifically allowed
+    if (tableData.canView.includes(currentUser.uid)) return true;
+    
+    return false;
+}
+
 async function loadTables() {
     const tablesSnapshot = await db.collection('spaces').doc(currentSpaceId)
         .collection('tables').orderBy('createdAt').get();
@@ -826,6 +841,12 @@ async function loadTables() {
 
     tablesSnapshot.forEach(doc => {
         const table = doc.data();
+        
+        // Check if user can view this table
+        if (!canViewTable(table)) {
+            return; // Skip this table
+        }
+        
         const div = document.createElement('div');
         div.className = 'table-item';
         if (doc.id === currentTableId) div.classList.add('active');
@@ -914,20 +935,40 @@ function handleNewTableKeyPress(event) {
 }
 
 function switchTable(tableId) {
-    currentTableId = tableId;
-    
-    document.querySelectorAll('.table-item').forEach(el => el.classList.remove('active'));
-    document.querySelector(`[onclick="switchTable('${tableId}')"]`).closest('.table-item').classList.add('active');
-
     db.collection('spaces').doc(currentSpaceId)
         .collection('tables').doc(tableId).get()
         .then(doc => {
-            currentTableData = doc.data();
+            if (!doc.exists) {
+                alert('Table not found');
+                switchTable('main');
+                return;
+            }
+            
+            const tableData = doc.data();
+            
+            // Check if user can view this table
+            if (!canViewTable(tableData)) {
+                alert('You do not have permission to view this table');
+                switchTable('main');
+                return;
+            }
+            
+            currentTableId = tableId;
+            currentTableData = tableData;
+            
+            document.querySelectorAll('.table-item').forEach(el => el.classList.remove('active'));
+            const tableElement = document.querySelector(`[onclick="switchTable('${tableId}')"]`);
+            if (tableElement) {
+                tableElement.closest('.table-item').classList.add('active');
+            }
+            
             document.getElementById('headerTableName').textContent = currentTableData.name;
             loadMessages(tableId);
+        })
+        .catch(error => {
+            console.error('Error switching table:', error);
+            switchTable('main');
         });
-    
-    
 }
 
 // ========================================
