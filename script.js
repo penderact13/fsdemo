@@ -8,6 +8,7 @@ const firebaseConfig = {
   measurementId: "G-EXM65Z84F0"
 };
 
+
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -34,6 +35,7 @@ let reportedMessages = [];
 let currentReportData = null;
 let currentKickUserId = null;
 let currentBanUserId = null;
+let lastMessageTime = 0;
 
 let setupData = {
     name: '',
@@ -469,12 +471,32 @@ function initializeEmojiPicker() {
         div.onclick = () => selectEmoji(emoji, div);
         picker.appendChild(div);
     });
+    
+    // Set up text input listener
+    const emojiInput = document.getElementById('emojiInput');
+    if (emojiInput) {
+        emojiInput.value = setupData.emoji;
+        emojiInput.addEventListener('input', (e) => {
+            const value = e.target.value;
+            if (value) {
+                setupData.emoji = value;
+                // Deselect all grid options if using custom input
+                document.querySelectorAll('.emoji-option').forEach(el => el.classList.remove('selected'));
+            }
+        });
+    }
 }
 
 function selectEmoji(emoji, element) {
     setupData.emoji = emoji;
     document.querySelectorAll('.emoji-option').forEach(el => el.classList.remove('selected'));
     element.classList.add('selected');
+    
+    // Also update the text input
+    const emojiInput = document.getElementById('emojiInput');
+    if (emojiInput) {
+        emojiInput.value = emoji;
+    }
 }
 
 function initializeColorPicker() {
@@ -811,9 +833,16 @@ async function loadTables() {
         const canManage = isOwnerOrCoOwner();
         const shieldHtml = canManage ? `<span class="table-shield" onclick="event.stopPropagation(); openTablePermissions('${doc.id}', '${escapeHtml(table.name)}')">🛡️</span>` : '';
         
+        // Add delete button for non-main tables if user is owner/co-owner
+        const canDelete = canManage && doc.id !== 'main';
+        const deleteHtml = canDelete ? `<span class="table-delete" onclick="event.stopPropagation(); deleteTable('${doc.id}', '${escapeHtml(table.name)}')">✕</span>` : '';
+        
         div.innerHTML = `
             <span class="table-name" onclick="switchTable('${doc.id}')">${escapeHtml(table.name)}</span>
-            ${shieldHtml}
+            <span class="table-actions">
+                ${shieldHtml}
+                ${deleteHtml}
+            </span>
         `;
         tablesList.appendChild(div);
     });
@@ -852,6 +881,29 @@ async function createNewTable() {
     } catch (error) {
         console.error('Error creating table:', error);
         alert('Error creating table: ' + error.message);
+    }
+}
+
+async function deleteTable(tableId, tableName) {
+    if (!confirm(`Are you sure you want to delete the table "${tableName}"? All messages in this table will be permanently deleted.`)) {
+        return;
+    }
+
+    try {
+        // Delete the table document
+        await db.collection('spaces').doc(currentSpaceId)
+            .collection('tables').doc(tableId).delete();
+
+        // If we're currently viewing this table, switch to main
+        if (currentTableId === tableId) {
+            switchTable('main');
+        }
+
+        // Reload tables list
+        await loadTables();
+    } catch (error) {
+        console.error('Error deleting table:', error);
+        alert('Error deleting table: ' + error.message);
     }
 }
 
@@ -1037,6 +1089,14 @@ async function sendMessage() {
     
     const text = input.value.trim();
     if (!text) return;
+
+    // 1-second cooldown to prevent spam
+    const now = Date.now();
+    if (now - lastMessageTime < 1000) {
+        alert('Please wait a moment before sending another message.');
+        return;
+    }
+    lastMessageTime = now;
 
     // Ensure avatar color exists
     const avatarColor = await ensureAvatarColor(currentUser.uid);
