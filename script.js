@@ -3,12 +3,13 @@
 // ========================================
 // TODO: Replace with your Firebase config from Firebase Console
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY_HERE",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBUObn49uGiW-FCHn6-ytKwZLrtyIH70GY",
+  authDomain: "friendspacedemo.firebaseapp.com",
+  projectId: "friendspacedemo",
+  storageBucket: "friendspacedemo.firebasestorage.app",
+  messagingSenderId: "68848931468",
+  appId: "1:68848931468:web:5f1b0aefb35b2c10a261a9",
+  measurementId: "G-EXM65Z84F0"
 };
 
 // Initialize Firebase
